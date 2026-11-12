@@ -29,18 +29,49 @@ On cherche le maximum de vraisemblance de $\theta=(\pi,\mu,\sigma)$ :
 \[
 L(\theta)=\sum_{i=1}^n\log\sum_{k=1}^K\pi_k\,\varphi(x_i;\mu_k,\sigma_k^2).
 \]
-$L$ n'est pas concave et n'a pas de maximiseur explicite. EM~\cite{ssbd} alterne deux étapes explicites :
-\begin{itemize}[nosep]
-\item \textbf{E :} $t_{ik}=\dfrac{\pi_k\varphi(x_i;\mu_k,\sigma_k^2)}{\sum_j\pi_j\varphi(x_i;\mu_j,\sigma_j^2)}$,
-  calculé en échelle logarithmique (\emph{log-sum-exp}) ;
-\item \textbf{M :} avec $n_k=\sum_it_{ik}$, on pose $\pi_k=n_k/n$, $\mu_k=\sum_it_{ik}x_i/n_k$ et
-  $\sigma_k^2=\sum_it_{ik}(x_i-\mu_k)^2/n_k$.
-\end{itemize}
+$L$ n'est pas concave et n'a pas de maximiseur explicite. EM~\cite{ssbd} considère les appartenances aux
+composantes comme des variables latentes : $z_{ik}=1$ si $x_i$ provient de la composante $k$, $0$ sinon. Dans le cas
+multivarié ($x_i\in\mathbb R^d$, $\theta=(\pi_k,\mu_k,\Sigma_k)_{k\le K}$), la log-vraisemblance complétée s'écrit
+\[
+\ell_c(\theta)=\sum_{i=1}^n\sum_{k=1}^K z_{ik}\Big[\ln\pi_k+\ln\mathcal N(x_i;\mu_k,\Sigma_k)\Big].
+\]
+Les $z_{ik}$ étant inconnus, EM les remplace par leur espérance conditionnelle sachant les observations et les
+paramètres courants :
+\begin{enumerate}[label=\textbf{\arabic*.}]
+\item \textbf{Initialisation :} choisir $\theta^{(0)}=\big(\pi_k^{(0)},\mu_k^{(0)},\Sigma_k^{(0)}\big)_{k\le K}$, de
+  manière aléatoire ou à partir des quantiles des données.
+\item \textbf{Étape E :} à l'itération $q$, calculer la probabilité a posteriori (responsabilité) que $x_i$
+  appartienne à la composante $k$, par le théorème de Bayes :
+  \[
+  t_{ik}^{(q)}=P\big(z_{ik}=1\mid x_i;\theta^{(q)}\big)
+  =\frac{\pi_k^{(q)}\,\mathcal N\big(x_i;\mu_k^{(q)},\Sigma_k^{(q)}\big)}
+         {\sum_{j=1}^K\pi_j^{(q)}\,\mathcal N\big(x_i;\mu_j^{(q)},\Sigma_j^{(q)}\big)},
+  \qquad 0\le t_{ik}^{(q)}\le1,\quad \sum_{k=1}^Kt_{ik}^{(q)}=1 .
+  \]
+  Chaque observation a ainsi une probabilité d'appartenance à chaque composante, plutôt qu'une affectation
+  définitive. En pratique, ce calcul se fait en échelle logarithmique (\emph{log-sum-exp}).
+\item \textbf{Étape M :} maximiser l'espérance conditionnelle de $\ell_c$, obtenue en remplaçant $z_{ik}$ par
+  $t_{ik}^{(q)}$ :
+  \[
+  Q\big(\theta\mid\theta^{(q)}\big)=\sum_{i=1}^n\sum_{k=1}^K t_{ik}^{(q)}\Big[\ln\pi_k-\tfrac d2\ln(2\pi)
+  -\tfrac12\ln|\Sigma_k|-\tfrac12(x_i-\mu_k)^\top\Sigma_k^{-1}(x_i-\mu_k)\Big].
+  \]
+  Avec $n_k=\sum_{i}t_{ik}^{(q)}$, le maximum est atteint en
+  \[
+  \pi_k^{(q+1)}=\frac{n_k}{n},\qquad
+  \mu_k^{(q+1)}=\frac1{n_k}\sum_{i=1}^n t_{ik}^{(q)}x_i,\qquad
+  \Sigma_k^{(q+1)}=\frac1{n_k}\sum_{i=1}^n t_{ik}^{(q)}\big(x_i-\mu_k^{(q+1)}\big)\big(x_i-\mu_k^{(q+1)}\big)^\top .
+  \]
+\item \textbf{Arrêt :} répéter les étapes 2 et 3 jusqu'à ce que
+  $\big|L(\theta^{(q+1)})-L(\theta^{(q)})\big|<\varepsilon$.
+\end{enumerate}
+En dimension~1 (cas du notebook), $\Sigma_k=\sigma_k^2$ et
+$\sigma_k^2=\frac1{n_k}\sum_it_{ik}(x_i-\mu_k)^2$.
 EM est une maximisation alternée de
 $G(Q,\theta)=\sum_{i,k}t_{ik}\log p_\theta(x_i,k)-\sum_{i,k}t_{ik}\log t_{ik}$, qui coïncide avec $L(\theta)$ après
 l'étape~E. La log-vraisemblance ne décroît donc jamais, mais EM peut s'arrêter en un maximum local ou en un point selle.
-Les dérivations ci-dessous (figures~\ref{fig:resp-em} et~\ref{fig:estim-em}) traitent le cas multivarié ; en
-dimension~1, avec $\Sigma_k=\sigma_k^2$, on retrouve les formules ci-dessus.
+Les dérivations manuscrites justifient l'étape~E (figure~\ref{fig:resp-em}) et les estimateurs de l'étape~M
+(figure~\ref{fig:estim-em}).
 
 \begin{figure}[H]\centering \fig[0.75\textwidth]{EM-Responsibility.jpg}
 \caption{Calcul des Responsabilités, $\tau_{ik}$ ou $t_{ik}$}\label{fig:resp-em}\end{figure}
