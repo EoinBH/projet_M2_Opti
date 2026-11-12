@@ -1,0 +1,124 @@
+\documentclass[a4paper,11pt]{article}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\usepackage{lmodern}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[french]{babel}
+\usepackage{float}
+\usepackage{graphicx}
+\usepackage{geometry}
+\usepackage{enumitem}
+\usepackage[hidelinks]{hyperref}
+\geometry{margin=2.5cm}
+\newcommand{\fig}[2][0.9\textwidth]{\IfFileExists{Figures/#2}{\includegraphics[width=#1]{Figures/#2}}%
+  {\fbox{\parbox[c][3cm][c]{#1}{\centering\small\texttt{\detokenize{Figures/#2}}}}}}
+
+\begin{document}
+\input{titlepage.tex}
+
+\section{Introduction}
+Nous reproduisons les expériences de la section EM de la leçon~19 d'EE~227C~\cite{ee227c} : l'estimation d'un mélange
+de deux Gaussiennes en dimension~1, puis la comparaison avec \emph{k-means}. Nous étudions ensuite l'influence de
+l'initialisation, de la séparation des composantes, de la taille d'échantillon et du nombre de composantes, avant une
+application aux données Iris.
+
+\section{L'algorithme EM}
+Soit $z_i\in\{1,\dots,K\}$ une variable latente avec $P(z_i=k)=\pi_k$ et $x_i\mid z_i=k\sim\mathcal N(\mu_k,\sigma_k^2)$.
+On cherche le maximum de vraisemblance de $\theta=(\pi,\mu,\sigma)$ :
+\[
+L(\theta)=\sum_{i=1}^n\log\sum_{k=1}^K\pi_k\,\varphi(x_i;\mu_k,\sigma_k^2).
+\]
+$L$ n'est pas concave et n'a pas de maximiseur explicite. EM~\cite{ssbd} alterne deux étapes explicites :
+\begin{itemize}[nosep]
+\item \textbf{E :} $t_{ik}=\dfrac{\pi_k\varphi(x_i;\mu_k,\sigma_k^2)}{\sum_j\pi_j\varphi(x_i;\mu_j,\sigma_j^2)}$,
+  calculé en échelle logarithmique (\emph{log-sum-exp}) ;
+\item \textbf{M :} avec $n_k=\sum_it_{ik}$, on pose $\pi_k=n_k/n$, $\mu_k=\sum_it_{ik}x_i/n_k$ et
+  $\sigma_k^2=\sum_it_{ik}(x_i-\mu_k)^2/n_k$.
+\end{itemize}
+EM est une maximisation alternée de
+$G(Q,\theta)=\sum_{i,k}t_{ik}\log p_\theta(x_i,k)-\sum_{i,k}t_{ik}\log t_{ik}$, qui coïncide avec $L(\theta)$ après
+l'étape~E. La log-vraisemblance ne décroît donc jamais, mais EM peut s'arrêter en un maximum local ou en un point selle.
+Les dérivations ci-dessous (figures~\ref{fig:resp-em} et~\ref{fig:estim-em}) traitent le cas multivarié ; en
+dimension~1, avec $\Sigma_k=\sigma_k^2$, on retrouve les formules ci-dessus.
+
+\begin{figure}[H]\centering \fig[0.75\textwidth]{EM-Responsibility.jpg}
+\caption{Calcul des Responsabilités, $\tau_{ik}$ ou $t_{ik}$}\label{fig:resp-em}\end{figure}
+
+\begin{figure}[H]\centering \fig[0.75\textwidth]{EM-Estimator-Proofs-Multivariate.jpg}
+\caption{Preuves des Estimateurs GMM (cas multivarié)}\label{fig:estim-em}\end{figure}
+
+%\paragraph{Correction du code de Berkeley.} La fonction \texttt{gmm\_likelihood} de Berkeley renvoie
+%\texttt{logsumexp(joint)} sans préciser l'axe. Elle calcule donc $\log\sum_i\sum_kp_\theta(x_i,k)$, et non
+%$\sum_i\log\sum_kp_\theta(x_i,k)$. Avec cette version, le critère BIC de la section~4.4 choisit toujours $K=1$. Nous
+%utilisons \texttt{logsumexp(joint, axis=1).sum()}.
+
+\section{Expérience de Berkeley}
+Les données sont $n=4000$ points, pour moitié $\mathcal N(-2,1)$ et pour moitié $\mathcal N(2,1)$ ; les moyennes
+sont initialisées aux quartiles. En 20 itérations, EM estime $\pi=(0{,}498;0{,}502)$, $\mu=(-2{,}02;1{,}99)$ et
+$\sigma=(0{,}997;1{,}002)$. La log-vraisemblance est croissante et se stabilise après environ 5 itérations
+(figure~\ref{fig:berk}).
+\begin{figure}[ht]\centering \fig{berkeley_em.png}
+\caption{Log-vraisemblance au fil des itérations et densité estimée.}\label{fig:berk}\end{figure}
+
+\section{Influence des paramètres}
+\subsection{Initialisation}
+Les 20 initialisations aléatoires (moyennes tirées parmi les données) atteignent toutes le même maximum
+($L=-8205{,}58$), en 33 à 56 itérations, contre 35 pour les quartiles. Une initialisation symétrique
+($\mu_1=\mu_2$, $\sigma_1=\sigma_2$, $\pi_1=\pi_2$) donne en revanche $t_{i1}=t_{i2}=\frac12$ pour tout $i$ : les deux
+composantes restent identiques à chaque itération. EM s'arrête alors en un point selle ($L=-8902{,}4$, valeur
+d'une seule Gaussienne) (figure~\ref{fig:init}).
+
+\subsection{Séparation des composantes}
+Avec des moyennes $\pm\Delta/2$, le nombre d'itérations nécessaires pour que $L$ varie de moins de $10^{-10}$ vaut 34
+($\Delta=4$), 142 ($\Delta=3$), 1472 ($\Delta=2$) et plus de 2000 ($\Delta=1$). La convergence d'EM est linéaire, et
+son taux dépend de la part d'information manquante : plus les composantes se recouvrent, plus les $t_{ik}$ sont
+incertains et plus EM est lent (figure~\ref{fig:init}). Les moyennes restent bien estimées
+($-0{,}58$ et $0{,}52$ pour $\Delta=1$), mais leur précision se dégrade quand $\Delta$ diminue.
+\begin{figure}[ht]\centering \fig[0.48\textwidth]{initialisation.png}\hfill\fig[0.48\textwidth]{separation.png}
+\caption{Gauche : 20 initialisations aléatoires (gris), quartiles et initialisation symétrique. Droite : écart à la
+log-vraisemblance finale selon la séparation $\Delta$.}\label{fig:init}\end{figure}
+
+\subsection{Taille d'échantillon et nombre de composantes}
+L'erreur moyenne sur les moyennes, calculée sur 20 répétitions, décroît comme $1/\sqrt n$ entre $n=50$ et $n=10^4$
+(figure~\ref{fig:n}). C'est l'erreur statistique de l'estimateur du maximum de vraisemblance, qu'aucune
+optimisation ne peut réduire. La log-vraisemblance ne progresse presque plus au-delà de $K=2$ (de $-8205{,}6$ à
+$-8204{,}6$), et le critère $\mathrm{BIC}=-2L+(3K-1)\log n$ retient bien $K=2$ :
+\begin{center}\small
+\begin{tabular}{lccccc}\toprule
+$K$ & 1 & 2 & 3 & 4 & 5\\\midrule
+BIC (simulé) & 17821 & \textbf{16453} & 16476 & 16500 & 16525\\
+BIC (Iris) & 605 & \textbf{426} & 440 & 455 & 470\\\bottomrule
+\end{tabular}
+\end{center}
+\begin{figure}[ht]\centering \fig[0.45\textwidth]{taille_echantillon.png}\hfill\fig[0.5\textwidth]{iris.png}
+\caption{Gauche : erreur d'estimation en fonction de $n$. Droite : mélange retenu pour les pétales d'Iris.}\label{fig:n}\end{figure}
+
+\section{\emph{k-means} et données réelles}
+Sur l'exemple de J.~VanderPlas~\cite{vdp} (4 groupes en dimension~2), \emph{k-means} et le mélange de Gaussiennes ajusté par
+EM donnent la même partition (figure~\ref{fig:km}). \emph{k-means} est la limite d'EM pour des Gaussiennes
+sphériques de même variance $\sigma^2\to0$ : les $t_{ik}$ deviennent des affectations 0/1.
+
+\paragraph{Iris.} Pour la longueur des pétales ($n=150$), le BIC retient $K=2$, avec $\pi=(0{,}33;0{,}67)$ et
+$\mu=(1{,}46;4{,}91)$ cm, comme scikit-learn. Le premier groupe contient exactement les 50 \emph{setosa} ; le second
+réunit \emph{versicolor} et \emph{virginica}, que cette seule variable ne sépare pas.
+\begin{figure}[ht]\centering \fig[0.75\textwidth]{kmeans.png}
+\caption{\emph{k-means} et mélange de Gaussiennes sur l'exemple de VanderPlas.}\label{fig:km}\end{figure}
+
+\section{Conclusion}
+EM fait croître la log-vraisemblance à chaque itération grâce à des étapes explicites. Il peut cependant s'arrêter
+en un point selle, comme avec l'initialisation symétrique, et il devient très lent quand les composantes se
+recouvrent. Sur ces données, toutes les initialisations aléatoires mènent au même maximum. La précision est limitée par
+l'erreur statistique en $1/\sqrt n$, et le BIC permet de choisir $K$.
+
+%\appendix
+%\section{Dérivations (manuscrites)}
+%\fig[0.9\textwidth]{derivations.jpg}
+
+\begin{thebibliography}{9}
+\bibitem{ee227c} M.~Hardt, EE~227C Lecture~19, UC Berkeley, 2018, \url{https://ee227c.github.io/code/lecture19.html\#em}.
+\bibitem{ssbd} S.~Shalev-Shwartz, S.~Ben-David, \emph{Understanding Machine Learning}, Cambridge Univ.\ Press, 2014,
+  ch.~24.
+\bibitem{vdp} J.~VanderPlas, \emph{Python Data Science Handbook}, O'Reilly, 2016, §5.12.
+\end{thebibliography}
+\end{document}

@@ -1,0 +1,9 @@
+.DS_Store
+.vscode/
+.ipynb_checkpoints/
+*.aux
+*.log
+*.out
+*.toc
+*.synctex.gz
+*.heic

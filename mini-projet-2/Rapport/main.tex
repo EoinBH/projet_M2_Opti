@@ -1,0 +1,116 @@
+\documentclass[a4paper,11pt]{article}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\usepackage{lmodern}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[french]{babel}
+\usepackage{graphicx}
+\usepackage{geometry}
+\usepackage{enumitem}
+\usepackage[hidelinks]{hyperref}
+\geometry{margin=2.5cm}
+\newcommand{\fig}[2][0.9\textwidth]{\IfFileExists{Figures/#2}{\includegraphics[width=#1]{Figures/#2}}%
+  {\fbox{\parbox[c][3cm][c]{#1}{\centering\small\texttt{\detokenize{Figures/#2}}}}}}
+
+\begin{document}
+\input{titlepage.tex}
+
+\section{Introduction}
+Nous implantons la méthode du sous-gradient et sa version stochastique par mini-batch pour le SVM linéaire, en suivant
+la leçon~4 d'EE~227C~\cite{ee227c} dont nous reproduisons l'expérience. Nous étudions ensuite l'effet du pas et de la
+taille du mini-batch, puis nous reprenons avec notre SVM les six vérifications de K.~Leung~\cite{leung} sur les
+données Titanic et sur le jeu irlandais \emph{Irish Educational Transitions}~\cite{irish}, déjà utilisés au projet~1.
+
+\section{Modèle et méthodes}
+Pour des étiquettes $y_i\in\{-1,1\}$, on cherche un hyperplan tel que $y_ia_i^\top x\ge1$ ; la marge vaut
+$1/\|x\|$. L'objectif est
+\[
+f(x)=\frac1m\sum_{i=1}^m\max\{0,1-y_ia_i^\top x\}+\frac\alpha2\|x\|^2,\qquad
+g(x)=-\frac1m\sum_{i:\,y_ia_i^\top x<1}y_ia_i+\alpha x\in\partial f(x).
+\]
+$f$ est $\alpha$-fortement convexe mais non différentiable : $g$ est un \emph{sous-gradient}, et
+$x_{k+1}=x_k-\eta_kg(x_k)$ n'est pas une méthode de descente. Avec un pas constant, les itérés oscillent autour de
+l'optimum, dans un voisinage de taille $\propto\eta$. Avec $\eta_k=1/(\alpha k)$ et des sous-gradients bornés par
+$G$, on obtient $f(\bar x_k)-f^\star=O\big(G^2\log k/(\alpha k)\big)$. La version stochastique (type
+\emph{Pegasos}~\cite{pegasos}) remplace la moyenne sur $i$ par une moyenne sur un mini-batch $B_k$ de taille $b$ : c'est un
+sous-gradient sans biais, de variance $\propto1/b$.
+
+\section{Expérience de Berkeley}
+On considère deux nuages gaussiens de moyennes $\pm0{,}1\cdot\mathbf 1$ dans $\mathbb R^{100}$, avec $m=1000$ et
+$\alpha=0{,}05$ ; le classifieur optimal en population est $x=\mathbf 1$. Avec $\eta=1$, l'objectif passe de $6{,}9$ à
+$0{,}40$ en une trentaine d'itérations. La précision d'apprentissage dépasse celle de l'optimum de population
+($0{,}83$) à cause des fluctuations d'échantillonnage (figure~\ref{fig:berk}). La moyenne de tous les itérés
+(objectif $0{,}52$) est ici moins bonne que le dernier, car elle inclut les premiers itérés très éloignés de
+l'optimum. Remarque : Berkeley somme les sous-gradients au lieu d'en faire la moyenne ; son pas $0{,}01$ équivaut
+donc à $\eta=10$ dans notre normalisation.
+\begin{figure}[ht]\centering \fig[0.8\textwidth]{berkeley_svm.png}
+\caption{Objectif et précision au cours des itérations ($\eta=1$).}\label{fig:berk}\end{figure}
+
+\section{Longueur du pas et taille du mini-batch}
+\begin{figure}[ht]\centering \fig{pas_minilot.png}
+\caption{Gauche : sous-gradient plein selon le pas. Droite : SGD avec $\eta_k=1/(\alpha k)$ selon la taille du mini-batch.}
+\label{fig:pas}\end{figure}
+\begin{itemize}[nosep]
+\item \textbf{Pas} (figure~\ref{fig:pas}) : $\eta=0{,}1$ est lent ; $\eta=1$ converge vite puis stagne à environ
+  $3\cdot10^{-3}$ de l'optimum ; $\eta=10$ (pas de Berkeley) oscille à environ $1$ de l'optimum. Seul le pas
+  décroissant $1/(\alpha k)$ continue de se rapprocher de l'optimum, comme le prévoit la théorie pour une fonction
+  non lisse.
+\item \textbf{Mini-batch} : par epoch, les tailles $b\in\{1,10,100,1000\}$ donnent des courbes proches. Les petits mini-batchs
+  font plus de mises à jour, mais plus bruitées et avec des pas qui décroissent plus vite. Par mise à jour, les
+  grands mini-batchs sont plus efficaces ; le choix de $b$ relève donc du coût de calcul et du bruit toléré.
+\end{itemize}
+
+\section{Vérifications de Leung adaptées au SVM}
+Le SVM n'est pas un modèle probabiliste : il n'y a ni vraisemblance, ni $p$-valeur de Wald, ni distance de Cook. Les
+vérifications sont donc adaptées. La linéarité est testée en comparant la précision en validation croisée (5 plis)
+avec et sans le terme $x\ln x$. L'influence est mesurée par la proportion de \emph{vecteurs de support}
+($y_if(a_i)\le1$), seuls points dont dépend la solution, et de points mal classés ($y_if(a_i)<0$), avec
+l'histogramme des marges. L'indépendance est examinée par l'autocorrélation des marges $y_if(a_i)$ selon l'ordre des
+observations : sous indépendance, environ 95\,\% des autocorrélations restent dans la bande $\pm1{,}96/\sqrt m$. Le modèle est ajusté sur des
+variables standardisées, avec $\alpha=0{,}01$, $\eta_k=1/(\alpha k)$ et 5000 itérations.
+
+\paragraph{Solution sur Titanic.} Le SVM ne retient pratiquement que le sexe : c'est la règle « les femmes
+survivent », de précision $0{,}787$. Ce n'est pas un défaut de convergence. scikit-learn (LinearSVC, même objectif)
+donne les mêmes coefficients ($-0{,}955$ pour \texttt{Sex\_male}, objectif $0{,}4315$ contre $0{,}4327$ pour
+nous). La perte charnière étant linéaire par morceaux, l'optimum est atteint en un « sommet » où la plupart des
+coefficients sont nuls. Ainsi $f(a_i)\approx\pm1$ pour tous les passagers : les marges valent presque
+exactement $+1$ (bien classé, sur la marge) ou $-1$ (mal classé), d'où l'histogramme à deux pics (figure~\ref{fig:diag}).
+
+\paragraph{Données irlandaises.} Le même phénomène apparaît : la solution ne garde que le type d'école
+(coefficient $-0{,}91$ pour l'école professionnelle, précision $0{,}741$), résultat là aussi identique à celui de
+scikit-learn. Les 6 autocorrélations hors de la bande ne traduisent pas une dépendance entre élèves : le fichier est
+trié par groupes, et la réponse elle-même est autocorrélée ($\approx0{,}18$) selon l'ordre des lignes.
+
+\begin{table}[ht]\centering\small
+\begin{tabular}{p{3.3cm}p{5.6cm}p{5cm}}\toprule
+Hypothèse & Titanic ($m=891$) & Irlande ($m=441$)\\\midrule
+1. Réponse binaire & oui (549 / 342) & oui (230 / 211)\\
+2. Linéarité ($x\ln x$, VC) & aucun gain (0,784 dans tous les cas) : OK & aucun gain (0,742) : OK\\
+3. Influence & 47,8\,\% de vecteurs de support, dont 21,3\,\% d'observations mal classées & 62,6\,\% de vecteurs de support, dont 25,9\,\% mal classées\\
+4. Multicolinéarité & VIF $\le2{,}7<5$ & VIF $\le1{,}24$\\
+5. Indépendance & 1 autocorrélation sur 30 hors de la bande : OK & 6 sur 30, dues à l'ordre du fichier\\
+6. Taille suffisante & 42,8 cas de la classe rare par variable ; 426 vecteurs de support & 52,8 ; 276 vecteurs de support\\\bottomrule
+\end{tabular}
+\caption{Bilan des six vérifications.}\end{table}
+\begin{figure}[ht]\centering \fig[0.8\textwidth]{diag_titanic.png}\\[1mm] \fig[0.8\textwidth]{diag_irlande.png}
+\caption{Histogramme des marges $y_if(a_i)$ et autocorrélation des marges (en haut : Titanic ; en bas : Irlande).}\label{fig:diag}\end{figure}
+
+\section{Conclusion}
+Le sous-gradient converge pour le SVM avec un pas décroissant $1/(\alpha k)$. Un pas constant ne donne qu'une
+précision limitée, proportionnelle au pas, et le pas de Berkeley ($\eta=10$ dans notre normalisation) oscille. La
+taille du mini-batch change peu la progression par epoch. Les vérifications de Leung se transposent au SVM sous une
+forme non probabiliste. Sur les deux jeux de données, la solution se réduit à une seule variable (le sexe, puis le
+type d'école), ce qui rend la plupart des diagnostics peu informatifs : contrairement à la régression logistique, le
+SVM ne mesure pas l'effet de chaque variable.
+
+\begin{thebibliography}{9}
+\bibitem{ee227c} M.~Hardt, EE~227C Lecture~4, UC Berkeley, 2018, \url{https://ee227c.github.io/code/lecture4.html\#svm}.
+\bibitem{leung} K.~Leung, \emph{Assumptions of Logistic Regression, Clearly Explained}, 2021,
+  \url{https://github.com/kennethleungty/Logistic-Regression-Assumptions}.
+\bibitem{irish} V.~Greaney, T.~Kelleghan, \emph{Equality of Opportunity in Irish Schools}, Dublin, 1984 ;
+  OpenML n\textsuperscript{o}~451, \url{https://www.openml.org/d/451}.
+\bibitem{pegasos} S.~Shalev-Shwartz, Y.~Singer, N.~Srebro, A.~Cotter, \emph{Pegasos: primal estimated
+  sub-gradient solver for SVM}, Math.\ Programming 127, 2011.
+\end{thebibliography}
+\end{document}

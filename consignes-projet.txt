@@ -1,0 +1,12 @@
+Lecturer's instructions:
+Projet no. 1: Implanter la méthode du gradient et du gradient stochastique pour le modèle logistique en adaptant les informations données pour le modèle de régression linéaire décrit ici : https://ee227c.github.io/code/lecture4.html#Least-Squares . Etudier numérique l'effet de la longeur du pas sur la convergence. Etudier l'effet du choix de la taille du mini-batch. Reproduire avec votre algorithme les expériences présentées dans le blog ici : https://towardsdatascience.com/building-a-logistic-regression-in-python-step-by-step-becd4d56c9c8 . 
+
+Projet no. 2: Implanter la méthode du gradient et du gradient stochastique pour le LASSO en s'appuyant sur le blog ici : https://ee227c.github.io/code/lecture4.html#lasso . Etudier numérique l'effet de la longeur du pas sur la convergence. Etudier l'effet du choix de la taille du mini-batch. Reproduire avec votre algorithme les expériences présentées dans la page du blog précédent. 
+
+Projet no. 3: Implanter la méthode du gradient et du gradient stochastique pour le problème de SVM en s'appuyant sur le blog ici : https://ee227c.github.io/code/lecture4.html#svm . Etudier numérique l'effet de la longeur du pas sur la convergence. Etudier l'effet du choix de la taille du mini-batch. Reproduire avec votre algorithme les expériences présentées dans la page du blog précédent. 
+
+Projet no. 4:  Implanter la méthode du gradient et du gradient stochastique pour le problème d'estimation de modèle graphique présenté dans le blog ici : https://ee227c.github.io/code/lecture4.html#Sparse-Inverse-Covariance-Estimation . Etudier numérique l'effet de la longeur du pas sur la convergence. Etudier l'effet du choix de la taille du mini-batch. Reproduire avec votre algorithme les expériences présentées dans la page du blog précédent. 
+
+Projet no. 5: Etudier et reproduire les expériences proposées dans le blog ici : https://ee227c.github.io/code/lecture19.html sur le problème de complétion de matrices par méthode d'optimisation alternée. Reproduire les experiences en étudiez l'influence du choix des divers paramètres. 
+
+Projet no. 6:  Etudier et reproduire les expériences proposées dans le blog ici : https://ee227c.github.io/code/lecture19.html#EM sur le problème de l'estimation d'un mélange de Gaussiennes par méthode EM. Reproduire les experiences en étudiez l'influence du choix des divers paramètres.

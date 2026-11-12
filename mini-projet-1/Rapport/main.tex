@@ -1,0 +1,140 @@
+\documentclass[a4paper,11pt]{article}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\usepackage{lmodern}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[french]{babel}
+\usepackage{float}
+\usepackage{graphicx}
+\usepackage{geometry}
+\usepackage{enumitem}
+\usepackage[hidelinks]{hyperref}
+\geometry{margin=2.5cm}
+% Inclut Figures/<nom>.png (ou .pdf/.jpg) s'il existe, sinon un cadre de remplacement
+\newcommand{\fig}[2][0.9\textwidth]{\IfFileExists{Figures/#2}{\includegraphics[width=#1]{Figures/#2}}%
+  {\fbox{\parbox[c][3cm][c]{#1}{\centering\small\texttt{\detokenize{Figures/#2}}}}}}
+
+\begin{document}
+\input{titlepage.tex}
+
+\section{Introduction}
+Nous implantons la descente de gradient et le gradient stochastique pour la régression logistique, en adaptant la
+partie \emph{Least Squares} (jusqu'à la régularisation $\ell_2$) de la leçon~4 d'EE~227C~\cite{ee227c}, puis nous étudions l'effet du pas et
+de la taille du mini-batch. Enfin, notre optimiseur sert à reproduire les six vérifications d'hypothèses de
+K.~Leung~\cite{leung} sur les données Titanic et sur un jeu irlandais~\cite{irish}.
+
+\section{Modèle et méthodes}
+Pour $A\in\mathbb R^{m\times n}$ de lignes $a_i^\top$ et $y\in\{0,1\}^m$, on suppose
+$P(y_i=1)=\sigma(a_i^\top x)$, $\sigma(t)=1/(1+e^{-t})$. L'estimateur du maximum de vraisemblance minimise
+\[
+f(x)=\frac1m\sum_{i=1}^m\Big[\log\big(1+e^{a_i^\top x}\big)-y_ia_i^\top x\Big],\qquad
+\nabla f(x)=\frac1mA^\top\big(\sigma(Ax)-y\big),\qquad
+\nabla^2f(x)=\frac1mA^\top WA,
+\]
+avec $W=\mathrm{diag}(p_i(1-p_i))$ et $p_i=\sigma(a_i^\top x)$ (dérivation ci-dessous).
+
+\begin{figure}[H]\centering
+\fig[0.75\textwidth]{Derivation-Fonction-Objectif.jpg}
+\caption{Régression Logistique - dérivation de la fonction objectif.}\label{fig:fonction-obj}
+\end{figure}
+
+\begin{figure}[H]\centering
+\fig[0.75\textwidth]{Derivation-Gradient-2.jpg}
+\caption{Régression Logistique - dérivation du gradient.}\label{fig:grad}
+\end{figure}
+
+\begin{figure}[H]\centering
+\fig[0.75\textwidth]{Derivation-Hessienne-2.jpg}
+\caption{Régression Logistique - dérivation de la Hessienne.}\label{fig:hess}
+\end{figure}
+
+Comme $0\le p(1-p)\le\frac14$,
+$f$ est convexe et $\beta$-lisse avec $\beta=\lambda_{\max}(A^\top A)/(4m)$, mais elle n'est pas fortement convexe
+globalement (seulement au voisinage de l'optimum).
+
+\paragraph{Gradient.} $x_{k+1}=x_k-\eta\nabla f(x_k)$. Pour $f$ $\beta$-lisse,
+$f(x_{k+1})\le f(x_k)-\eta(1-\frac{\beta\eta}{2})\|\nabla f(x_k)\|^2$ : la décroissance est garantie si $\eta<2/\beta$,
+et le pas $\eta=1/\beta$ maximise la borne.
+
+\paragraph{Gradient stochastique par mini-batch.} $x_{k+1}=x_k-\eta\, g_k$ avec
+$g_k=\frac1b\sum_{i\in B_k}(\sigma(a_i^\top x_k)-y_i)a_i$, où $B_k$ est un mini-batch de taille $b$ tiré au hasard. On a
+$\mathbb E[g_k]=\nabla f(x_k)$ et une variance proportionnelle à $1/b$. Une \emph{epoch} parcourt les $m$
+observations en $m/b$ mises à jour.
+
+\section{Adaptation du notebook de Berkeley}
+\begin{itemize}[nosep]
+\item \textbf{Cas $m\ge n$} ($m=1000$, $n=20$, données simulées) : avec $\eta=1/\beta$, la convergence est linéaire
+  en objectif et dans le domaine (figure~\ref{fig:berk}). La distance à $x_{\rm vrai}$ plafonne à l'erreur
+  statistique $\|x^\star-x_{\rm vrai}\|^2$.
+\item \textbf{Cas $m<n$} : les classes sont séparables, $f(x_k)\to0$ et $\|x_k\|\to\infty$ : il n'existe pas de
+  minimiseur. Avec la pénalité $\frac\alpha2\|x\|^2$, l'objectif devient $\alpha$-fortement convexe et la convergence
+  vers l'unique minimiseur est linéaire.
+\end{itemize}
+\begin{figure}[ht]\centering
+\fig[0.48\textwidth]{berkeley_surdetermine.png}\hfill\fig[0.48\textwidth]{berkeley_l2.png}
+\caption{Cas $m\ge n$ (gauche) ; cas $m<n$ et régularisation $\ell_2$ (droite).}\label{fig:berk}
+\end{figure}
+
+\section{Longueur du pas et taille du mini-batch}
+\begin{figure}[ht]\centering \fig{pas_minilot.png}
+\caption{Gauche : gradient plein pour $\eta=c/\beta$. Droite : SGD ($\eta=0{,}05$) pour plusieurs tailles de mini-batch.}
+\label{fig:pas}\end{figure}
+\begin{itemize}[nosep]
+\item \textbf{Pas} (figure~\ref{fig:pas}) : $\eta=0{,}1/\beta$ converge lentement ; $1/\beta$ et $2/\beta$ atteignent
+  la précision machine en quelques dizaines d'itérations ; à partir de $4/\beta$ la méthode oscille sans converger.
+\item \textbf{Mini-batch} : à nombre d'epochs égal, $b=1$ fait le plus de mises à jour mais reste très bruité ;
+  $b=10$ descend vite puis plafonne (bruit $\propto\eta/b$) ; $b=100$ converge régulièrement ; $b=m$ (gradient
+  plein) ne fait qu'une mise à jour par epoch et progresse lentement. Une taille intermédiaire réalise le meilleur
+  compromis entre bruit et nombre de mises à jour.
+\end{itemize}
+
+\section{Vérification des hypothèses (d'après K.~Leung)}
+Le modèle est ajusté par notre gradient ($\eta=1/\beta$, variables standardisées). Les tests utilisent la Hessienne
+$H=A^\top WA$ à l'optimum : $p$-valeurs de Wald ($\widehat{\rm Cov}(\hat x)=H^{-1}$), levier
+$h_i=(W^{1/2}AH^{-1}A^\top W^{1/2})_{ii}$, distance de Cook $D_i=\frac{r_i^2}{k}\frac{h_i}{(1-h_i)^2}$ (avec
+$r_i$ le résidu de Pearson et $k$ le nombre de paramètres) et VIF$_j=(R^{-1})_{jj}$ (avec $R$ la matrice de
+corrélation des variables). Sur Titanic, on retrouve exactement les valeurs de Leung.
+
+\paragraph{Données irlandaises.} \emph{Irish Educational Transitions}~\cite{irish} : 500 élèves irlandais de 11 ans
+suivis à partir de 1967. La réponse indique si l'élève a passé le \emph{Leaving Certificate} (l'équivalent du baccalauréat français) ; les variables sont le
+sexe, le score de raisonnement verbal (DVRT), le prestige de la profession du père et le type d'école. Comme
+Raftery \& Hout, on retire les élèves sortis après le primaire (séparation parfaite) et les valeurs manquantes,
+ainsi que le niveau d'études atteint, qui contient la réponse. Le score DVRT ($z=4{,}4$), le prestige
+($z=3{,}0$) et l'école professionnelle ($z=-7{,}5$) sont significatifs, le sexe ne l'est pas ($p=0{,}98$).
+Dans le fichier, les élèves sont regroupés (la réponse est autocorrélée selon l'ordre des lignes), ce qui explique
+la légère structure des résidus de déviance selon l'indice ; les élèves étant distincts, nous considérons
+l'indépendance comme plausible.
+
+\begin{table}[ht]\centering\small
+\begin{tabular}{p{3.4cm}p{5.4cm}p{5cm}}\toprule
+Hypothèse & Titanic ($m=891$) & Irlande ($m=441$)\\\midrule
+1. Réponse binaire & oui (549 / 342) & oui (230 / 211)\\
+2. Linéarité du logit (Box-Tidwell) & Age : $p=0{,}10$ (respectée) ; Fare : $p<0{,}001$ (violée) & DVRT : $p=0{,}35$ ; Prestige : $p=0{,}59$ (respectée)\\
+3. Pas d'observations très influentes & Cook $>4/m$ : 6,1\,\% ; influentes et $|r|>3$ : 1,3\,\% & 4,8\,\% ; 1,6\,\%\\
+4. Pas de multicolinéarité & VIF $\le 2{,}7<5$ & VIF $\le 1{,}24$\\
+5. Indépendance & résidus de déviance sans structure selon l'indice & légère structure, due à l'ordre du fichier\\
+6. Taille suffisante & 891 obs., 42,8 événements par variable & 441 obs. ($<500$), mais 52,8 événements par variable\\\bottomrule
+\end{tabular}
+\caption{Bilan des six hypothèses.}\label{tab:hyp}
+\end{table}
+\begin{figure}[ht]\centering \fig{diag_titanic.png}\\[1mm] \fig{diag_irlande.png}
+\caption{Log-odds prédits en fonction des variables continues, distance de Cook et résidus de déviance (en haut :
+Titanic ; en bas : Irlande).}\end{figure}
+
+\section{Conclusion}
+La perte logistique est convexe et $\beta$-lisse : le gradient avec $\eta\in[1/\beta,2/\beta]$ converge rapidement,
+alors que les pas plus grands oscillent. Le SGD par mini-batch échange précision contre coût par mise à jour, et la
+taille du mini-batch règle ce compromis. Notre optimiseur suffit pour reproduire les diagnostics de Leung. Sur
+Titanic, seule la linéarité du logit pour \texttt{Fare} est violée. Sur les données irlandaises, les six hypothèses
+sont raisonnablement vérifiées, avec deux réserves : l'échantillon est un peu inférieur à 500 observations, et
+l'ordre du fichier n'est pas aléatoire.
+
+\begin{thebibliography}{9}
+\bibitem{ee227c} M.~Hardt, EE~227C Lecture~4, UC Berkeley, 2018, \url{https://ee227c.github.io/code/lecture4.html}.
+\bibitem{leung} K.~Leung, \emph{Assumptions of Logistic Regression, Clearly Explained}, Towards Data Science, 2021,
+  \url{https://github.com/kennethleungty/Logistic-Regression-Assumptions}.
+\bibitem{irish} V.~Greaney, T.~Kelleghan, \emph{Equality of Opportunity in Irish Schools}, Dublin, 1984 ;
+  données OpenML n\textsuperscript{o}~451, \url{https://www.openml.org/d/451}.
+\end{thebibliography}
+\end{document}
